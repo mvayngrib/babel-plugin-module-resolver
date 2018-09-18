@@ -58,8 +58,7 @@ describe('module-resolver', () => {
         // otherwise it would be ../node_modules/second/index.js
         expect(second211Again).toBe('../node_modules/first/node_modules/second/index.js');
         expect(second212).toBe('./node_modules/second/index.js');
-        // falls back to alias
-        expect(app).toBe('app');
+        expect(app).toBe('./app');
       });
     });
   });

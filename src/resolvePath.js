@@ -105,23 +105,23 @@ function resolveDeduper(sourcePath, currentFile, opts) {
     return null;
   }
 
-  // avoid the whole @providesModule weirness
+  // avoid the whole @providesModule weirdness
   if (currentFile.includes('/react-native/Libraries/')) {
     return null;
   };
 
-  // our best result so far
-  // in case we fail, let's save a 2nd trip to resolvePathFromAliasConfig
-  let result = resolvePathFromAliasConfig(sourcePath, currentFile, opts) || sourcePath;
+  // this is necessary
+  // also, in case we fail, let's not take a 2nd trip to resolvePathFromAliasConfig
+  const dealiased = resolvePathFromAliasConfig(sourcePath, currentFile, opts);
 
-  const resolvedSourceFile = nodeResolvePath(result, path.dirname(currentFile), extensions);
+  const resolvedSourceFile = nodeResolvePath(dealiased || sourcePath, path.dirname(currentFile), extensions);
   if (!resolvedSourceFile) {
-    return result;
+    return dealiased;
   }
 
   const pkgJsonPath = getPackageJsonPathForFile(resolvedSourceFile);
   if (!pkgJsonPath) {
-    return result;
+    return dealiased;
   }
 
   // eslint-disable-next-line import/no-dynamic-require, global-require
@@ -130,13 +130,13 @@ function resolveDeduper(sourcePath, currentFile, opts) {
   if (!dedupeCache[nameAndVersion]) {
     // last check before we commit
     if (!fs.existsSync(resolvedSourceFile)) {
-      return result;
+      return dealiased;
     }
 
     dedupeCache[nameAndVersion] = resolvedSourceFile;
   }
 
-  result = toLocalPath(
+  const result = toLocalPath(
     toPosixPath(mapToRelative(cwd, currentFile, dedupeCache[nameAndVersion]))
   );
 
