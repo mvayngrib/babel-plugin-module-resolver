@@ -114,14 +114,8 @@ function resolveDeduper(sourcePath, currentFile, opts) {
   // in case we fail, let's save a 2nd trip to resolvePathFromAliasConfig
   let result = resolvePathFromAliasConfig(sourcePath, currentFile, opts) || sourcePath;
 
-  // const moduleDir = getModuleDir(currentFile);
-  // const basedir = moduleDir || path.dirname(currentFile);
   const resolvedSourceFile = nodeResolvePath(result, path.dirname(currentFile), extensions);
   if (!resolvedSourceFile) {
-    return result;
-  }
-
-  if (!fs.existsSync(resolvedSourceFile)) {
     return result;
   }
 
@@ -134,6 +128,11 @@ function resolveDeduper(sourcePath, currentFile, opts) {
   const pkg = require(pkgJsonPath);
   const nameAndVersion = `${pkg.name}@${pkg.version}`;
   if (!dedupeCache[nameAndVersion]) {
+    // last check before we commit
+    if (!fs.existsSync(resolvedSourceFile)) {
+      return result;
+    }
+
     dedupeCache[nameAndVersion] = resolvedSourceFile;
   }
 
