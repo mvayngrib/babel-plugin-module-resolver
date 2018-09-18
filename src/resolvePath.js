@@ -56,11 +56,6 @@ function getModuleDir(file) {
   return path.join(parentDir, rest.slice(0, endIdx));
 }
 
-function getPackageJsonPathForFile(file) {
-  const moduleDir = getModuleDir(file);
-  return moduleDir && path.join(moduleDir, 'package.json');
-}
-
 function resolvePathFromRootConfig(sourcePath, currentFile, opts) {
   const absFileInRoot = findPathInRoots(sourcePath, opts);
 
@@ -123,11 +118,6 @@ function resolveDeduper(sourcePath, currentFile, opts) {
     return null;
   }
 
-  // avoid the whole @providesModule weirdness
-  if (currentFile.includes('/react-native/Libraries/')) {
-    return null;
-  };
-
   // this is necessary
   // also, in case we fail, let's not take a 2nd trip to resolvePathFromAliasConfig
   const dealiased = resolvePathFromAliasConfig(sourcePath, currentFile, opts);
@@ -140,24 +130,27 @@ function resolveDeduper(sourcePath, currentFile, opts) {
     return dealiased;
   }
 
-  const pkgJsonPath = getPackageJsonPathForFile(resolvedSourceFile);
+  const moduleDir = getModuleDir(resolvedSourceFile);
+  const pkgJsonPath = moduleDir && path.join(moduleDir, 'package.json');
   if (!pkgJsonPath) {
     return dealiased;
   }
 
+  const pathRelModuleDir = path.relative(moduleDir, resolvedSourceFile);
+
   // eslint-disable-next-line import/no-dynamic-require, global-require
   const pkg = require(pkgJsonPath);
-  const nameAndVersion = `${pkg.name}@${pkg.version}`;
-  if (!dedupeCache[nameAndVersion]) {
+  const dedupedName = `${pkg.name}@${pkg.version}/${pathRelModuleDir}`;
+  if (!dedupeCache[dedupedName]) {
     // last check before we commit
     if (!fs.existsSync(resolvedSourceFile)) {
       return dealiased;
     }
 
-    dedupeCache[nameAndVersion] = resolvedSourceFile;
+    dedupeCache[dedupedName] = resolvedSourceFile;
   }
 
-  const result = fromAbs(cwd, currentFile, dedupeCache[nameAndVersion]);
+  const result = fromAbs(cwd, currentFile, dedupeCache[dedupedName]);
   return result;
 }
 
@@ -168,6 +161,11 @@ const resolvers = [
 ];
 
 export default function resolvePath(sourcePath, currentFile, opts) {
+  // avoid the whole @providesModule weirdness
+  if (currentFile.includes('/react-native/Libraries/')) {
+    return null;
+  }
+
   if (isRelativePath(sourcePath)) {
     return sourcePath;
   }
