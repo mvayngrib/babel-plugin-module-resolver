@@ -1,12 +1,31 @@
 import path from 'path';
 import resolve from 'resolve';
+import browserResolve from 'browser-resolve';
 
-export function nodeResolvePath(modulePath, basedir, extensions) {
+export function nodeResolvePath(modulePath, { basedir, extensions, aliasFields }) {
+  let defaultPath
   try {
-    return resolve.sync(modulePath, { basedir, extensions });
+    defaultPath = resolve.sync(modulePath, { basedir, extensions });
   } catch (e) {
-    return null;
+    defaultPath = null;
   }
+
+  if (!aliasFields) {
+    return defaultPath;
+  }
+
+  let dealiased = null;
+  aliasFields.some(alias => {
+    try {
+      dealiased = browserResolve.sync(modulePath, { basedir, browser: alias });
+    } catch (e) {
+      return false;
+    }
+
+    return dealiased !== defaultPath;
+  })
+
+  return dealiased;
 }
 
 export function isRelativePath(nodePath) {

@@ -6,7 +6,7 @@ import findBabelConfig from 'find-babel-config';
 import glob from 'glob';
 import pkgUp from 'pkg-up';
 
-import { escapeRegExp } from './utils';
+import { escapeRegExp, nodeResolvePath } from './utils';
 import defaultResolvePath from './resolvePath';
 
 
@@ -142,10 +142,17 @@ export default createSelector(
     const cwd = normalizeCwd(opts.cwd, currentFile);
     const root = normalizeRoot(opts.root, cwd);
     const alias = normalizeAlias(opts.alias);
+    const { aliasFields } = opts;
     const transformFunctions = normalizeTransformedFunctions(opts.transformFunctions);
     const extensions = opts.extensions || defaultExtensions;
     const stripExtensions = opts.stripExtensions || extensions;
     const resolvePath = opts.resolvePath || defaultResolvePath;
+    const nodeResolvePathPrefilled = (filePath, resolveOpts={}) => nodeResolvePath(filePath, {
+      extensions,
+      aliasFields,
+      ...resolveOpts,
+    })
+
     // how do we not use a global dedupe cache?
     const dedupeCache = opts.dedupe && GLOBAL_DEDUPE_CACHE;
 
@@ -153,10 +160,12 @@ export default createSelector(
       cwd,
       root,
       alias,
+      aliasFields,
       transformFunctions,
       extensions,
       stripExtensions,
       resolvePath,
+      nodeResolvePath: nodeResolvePathPrefilled,
       dedupeCache,
     };
   },

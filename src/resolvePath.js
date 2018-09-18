@@ -4,7 +4,13 @@ import path from 'path';
 import { warn } from './log';
 import mapToRelative from './mapToRelative';
 import normalizeOptions from './normalizeOptions';
-import { nodeResolvePath, replaceExtension, isRelativePath, toLocalPath, toPosixPath } from './utils';
+import {
+  // nodeResolvePath,
+  replaceExtension,
+  isRelativePath,
+  toLocalPath,
+  toPosixPath,
+} from './utils';
 
 const SEP_LENGTH = path.sep.length
 const NODE_MODULES = `${path.sep}node_modules${path.sep}`
@@ -21,12 +27,16 @@ function getRelativePath(sourcePath, currentFile, absFileInRoot, opts) {
   return toLocalPath(toPosixPath(relativePath));
 }
 
-function findPathInRoots(sourcePath, { extensions, root }) {
+function fromAbs(cwd, currentFile, abs) {
+  return toLocalPath(toPosixPath(mapToRelative(cwd, currentFile, abs)))
+}
+
+function findPathInRoots(sourcePath, { nodeResolvePath, root }) {
   // Search the source path inside every custom root directory
   let resolvedSourceFile;
 
   root.some((basedir) => {
-    resolvedSourceFile = nodeResolvePath(`./${sourcePath}`, basedir, extensions);
+    resolvedSourceFile = nodeResolvePath(`./${sourcePath}`, { basedir });
     return resolvedSourceFile !== null;
   });
 
@@ -61,17 +71,18 @@ function resolvePathFromRootConfig(sourcePath, currentFile, opts) {
   return getRelativePath(sourcePath, currentFile, absFileInRoot, opts);
 }
 
-function checkIfPackageExists(modulePath, currentFile, extensions) {
-  const resolvedPath = nodeResolvePath(modulePath, currentFile, extensions);
+function checkIfPackageExists(modulePath, currentFile, { nodeResolvePath }) {
+  const resolvedPath = nodeResolvePath(modulePath, { basedir: currentFile });
   if (resolvedPath === null) {
     warn(`Could not resolve "${modulePath}" in file ${currentFile}.`);
   }
 }
 
 function resolvePathFromAliasConfig(sourcePath, currentFile, opts) {
+  const { alias, aliasFields, cwd, nodeResolvePath, } = opts;
   let aliasedSourceFile;
 
-  opts.alias.find(([regExp, substitute]) => {
+  alias.find(([regExp, substitute]) => {
     const execResult = regExp.exec(sourcePath);
 
     if (execResult === null) {
@@ -82,25 +93,32 @@ function resolvePathFromAliasConfig(sourcePath, currentFile, opts) {
     return true;
   });
 
+  if (!aliasedSourceFile && aliasFields) {
+    aliasedSourceFile = nodeResolvePath(sourcePath, { basedir: path.dirname(currentFile) });
+    if (aliasedSourceFile) {
+      return fromAbs(cwd, currentFile, aliasedSourceFile);
+    }
+
+    return null;
+  }
+
   if (!aliasedSourceFile) {
     return null;
   }
 
   if (isRelativePath(aliasedSourceFile)) {
-    return toLocalPath(toPosixPath(
-      mapToRelative(opts.cwd, currentFile, aliasedSourceFile)),
-    );
+    return fromAbs(cwd, currentFile, aliasedSourceFile);
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    checkIfPackageExists(aliasedSourceFile, currentFile, opts.extensions);
+    checkIfPackageExists(aliasedSourceFile, currentFile, opts);
   }
 
   return aliasedSourceFile;
 }
 
 function resolveDeduper(sourcePath, currentFile, opts) {
-  const { dedupeCache, cwd, extensions } = opts;
+  const { dedupeCache, cwd, nodeResolvePath } = opts;
   if (!dedupeCache) {
     return null;
   }
@@ -114,7 +132,10 @@ function resolveDeduper(sourcePath, currentFile, opts) {
   // also, in case we fail, let's not take a 2nd trip to resolvePathFromAliasConfig
   const dealiased = resolvePathFromAliasConfig(sourcePath, currentFile, opts);
 
-  const resolvedSourceFile = nodeResolvePath(dealiased || sourcePath, path.dirname(currentFile), extensions);
+  const resolvedSourceFile = nodeResolvePath(dealiased || sourcePath, {
+    basedir: path.dirname(currentFile),
+  });
+
   if (!resolvedSourceFile) {
     return dealiased;
   }
@@ -136,10 +157,7 @@ function resolveDeduper(sourcePath, currentFile, opts) {
     dedupeCache[nameAndVersion] = resolvedSourceFile;
   }
 
-  const result = toLocalPath(
-    toPosixPath(mapToRelative(cwd, currentFile, dedupeCache[nameAndVersion]))
-  );
-
+  const result = fromAbs(cwd, currentFile, dedupeCache[nameAndVersion]);
   return result;
 }
 

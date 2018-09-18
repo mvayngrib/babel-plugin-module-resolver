@@ -27,6 +27,16 @@ describe('module-resolver', () => {
         expect(result).toBe('./app');
       });
 
+      it('should respect aliasFields', () => {
+        const opts = {
+          root: ['./test/testproject/src'],
+          aliasFields: ['browser'],
+        };
+
+        const result = resolvePath('first', './test/testproject/src/app', opts);
+        expect(result).toBe('../node_modules/second/index.js');
+      });
+
       it('should not dedupe second@2.1.1', () => {
         const opts = {
           root: ['./test/testproject/src'],
