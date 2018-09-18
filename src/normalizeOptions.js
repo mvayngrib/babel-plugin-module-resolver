@@ -27,6 +27,8 @@ const defaultTransformedFunctions = [
   'require.requireMock',
 ];
 
+const GLOBAL_DEDUPE_CACHE = Object.create(null);
+
 function isRegExp(string) {
   return string.startsWith('^') || string.endsWith('$');
 }
@@ -144,6 +146,8 @@ export default createSelector(
     const extensions = opts.extensions || defaultExtensions;
     const stripExtensions = opts.stripExtensions || extensions;
     const resolvePath = opts.resolvePath || defaultResolvePath;
+    // how do we not use a global dedupe cache?
+    const dedupeCache = opts.dedupe && GLOBAL_DEDUPE_CACHE;
 
     return {
       cwd,
@@ -153,6 +157,7 @@ export default createSelector(
       extensions,
       stripExtensions,
       resolvePath,
+      dedupeCache,
     };
   },
 );

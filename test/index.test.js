@@ -22,9 +22,44 @@ describe('module-resolver', () => {
         const opts = {
           root: ['./test/testproject/src'],
         };
-        const result = resolvePath('app', './test/testproject/src/app', opts);
 
+        const result = resolvePath('app', './test/testproject/src/app', opts);
         expect(result).toBe('./app');
+      });
+
+      it('should not dedupe second@2.1.1', () => {
+        const opts = {
+          root: ['./test/testproject/src'],
+        };
+
+        const second211 = resolvePath('second', './test/testproject/node_modules/first/index.js', opts);
+        const second211Again = resolvePath('second', './test/testproject/src/app', opts);
+        const second212 = resolvePath('second', './test/testproject/node_modules/third/index.js', opts);
+
+        expect(second211).toBe(null);
+        expect(second211Again).toBe(null);
+        expect(second212).toBe(null);
+      });
+
+      it('should dedupe second@2.1.1', () => {
+        const opts = {
+          root: ['./test/testproject/src'],
+          dedupe: true,
+        };
+
+        const second211 = resolvePath('second', './test/testproject/node_modules/first/index.js', opts);
+        // should return cached
+        const second211Again = resolvePath('second', './test/testproject/src/app', opts);
+        const second212 = resolvePath('second', './test/testproject/node_modules/third/index.js', opts);
+        const app = resolvePath('app', './test/testproject/src/app', opts);
+
+        expect(second211).toBe('./node_modules/second/index.js');
+        // from cache
+        // otherwise it would be ../node_modules/second/index.js
+        expect(second211Again).toBe('../node_modules/first/node_modules/second/index.js');
+        expect(second212).toBe('./node_modules/second/index.js');
+        // falls back to alias
+        expect(app).toBe('app');
       });
     });
   });
